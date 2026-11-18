@@ -1,0 +1,56 @@
+{
+  "name": "dsh-download-nexus",
+  "version": "0.6.11",
+  "icon": "assets/icon/icon-128.png",
+  "private": true,
+  "type": "module",
+  "description": "Unified download conductor for DeepSeek Harness: routes downloads to Motrix/aria2, yt-dlp, HuggingFace CLI or a hardened direct HTTP engine, and blocks file-writing shell download commands so every download is trackable.",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "engines",
+    "tools",
+    "guard",
+    "registry",
+    "prompt.mjs",
+    "assets",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "lib/**/*.js",
+    "lib/**/*.mjs",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeki520/dsh-download-nexus.git"
+  },
+  "homepage": "https://github.com/zeki520/dsh-download-nexus#readme",
+  "bugs": {
+    "url": "https://github.com/zeki520/dsh-download-nexus/issues"
+  }
+}

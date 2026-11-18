@@ -1,0 +1,12 @@
+- insert:
+    - id: dsh-download-nexus
+      name: 'dsh-download-nexus'
+      config:
+        # 工具名不加前缀：download / download_status / download_control / download_doctor / motrix_provision。
+        toolPrefix: ''
+        allowShell: false
+        # defaultSaveDir / allowedRoots 故意不写：缺省时 Host 取 <用户主目录>/Downloads。
+        # 写死绝对路径会让这个包装到别人机器上时默认落到不存在的目录。
+        connections: 16
+        maxBytes: 21474836480
+        autoStartMotrix: false
