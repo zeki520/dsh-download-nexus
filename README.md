@@ -24,7 +24,8 @@
   <a href="#工具">工具</a> ·
   <a href="#配置">配置</a> ·
   <a href="#安全边界">安全边界</a> ·
-  <a href="#文档">文档</a>
+  <a href="#文档">文档</a> ·
+  <a href="#致谢">致谢</a>
 </p>
 
 <p align="center">
@@ -130,6 +131,16 @@ node scripts/contrast-audit.mjs   # 只跑配色对比度（WCAG 2.1，深/浅�
 
 客户端是手写的单文件 React（`lib/client.js`，走 `window.__ModuleLoader__.load`），样式内联在同一个具名模板字符串里；改样式不用重启 DSH（`ensureStyle` 会比对内容后重插），改逻辑要重装 tarball。
 
-## License
+## 致谢
 
-MIT
+这个插件站在别人的肩膀上：
+
+- ⭐ [DeepSeek Harness](https://github.com/deepseek-ai) —— 插件契约、`tools/pre-execute` 钩子与配置中心那一套注入点
+- ⭐ [Motrix](https://github.com/agalwood/Motrix) —— 多连接下载与 `magnet` / `.torrent` 的落地
+- ⭐ [yt-dlp](https://github.com/yt-dlp/yt-dlp) —— 视频页面解析与字幕
+- ⭐ [huggingface/huggingface_hub](https://github.com/huggingface/huggingface_hub) —— `hf` CLI 与仓库级 `include` / `revision`
+- ⭐ [hf-mirror.com](https://hf-mirror.com) · [ghfast.top](https://ghfast.top) —— 国内直连的镜像选项，默认关闭、显式 opt-in
+
+## 许可证
+
+[MIT](LICENSE) © 2026 zeki520
