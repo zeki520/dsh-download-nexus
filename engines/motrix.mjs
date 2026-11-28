@@ -6,6 +6,11 @@ import { assertSafeFilename } from '../lib/paths.mjs'
 const PROBE_TIMEOUT_MS = 1500
 const RPC_TIMEOUT_MS = 15_000
 const ENDPOINT_ENV = 'DSH_MOTRIX_ENDPOINT'
+const SUBMISSION_UNKNOWN_HINT = '请先在 Motrix 任务列表核对是否已创建该下载，确认没有对应任务后再重试；插件未自动重新提交。'
+
+function unknownSubmission({ info, ...options } = {}) {
+  return { ...options, hint: SUBMISSION_UNKNOWN_HINT, info: { ...info, submission: 'unknown' } }
+}
 
 function endpointPath(env = process.env) {
   if (env[ENDPOINT_ENV]) return env[ENDPOINT_ENV]
@@ -110,6 +115,7 @@ export function createMotrixEngine({ cfg, env = process.env, fetchImpl = globalT
       })
     }
     const body = JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params })
+    const unconfirmed = (options) => method === 'download/add' ? unknownSubmission(options) : options
     let response
     try {
       response = await fetchImpl(`http://127.0.0.1:${current.port}/mdxp`, {
@@ -122,7 +128,8 @@ export function createMotrixEngine({ cfg, env = process.env, fetchImpl = globalT
         signal: signalFor(signal, timeoutMs),
       })
     } catch (error) {
-      throw new ConductorError('E_ENGINE_UNAVAILABLE', `连不上 Motrix 桥：${error.message}`, { cause: error })
+      const message = method === 'download/add' ? '未收到 Motrix 桥响应' : '连不上 Motrix 桥'
+      throw new ConductorError('E_ENGINE_UNAVAILABLE', `${message}：${error.message}`, unconfirmed({ cause: error }))
     }
 
     if (response.status === 401 && retryAuth) {
@@ -134,7 +141,8 @@ export function createMotrixEngine({ cfg, env = process.env, fetchImpl = globalT
     try {
       payload = await response.json()
     } catch (error) {
-      throw new ConductorError('E_ENGINE_UNAVAILABLE', `Motrix 桥返回了非 JSON 响应（HTTP ${response.status}）`, { cause: error })
+      throw new ConductorError('E_ENGINE_UNAVAILABLE', `Motrix 桥返回了非 JSON 响应（HTTP ${response.status}）`,
+        response.status === 401 ? { cause: error } : unconfirmed({ cause: error }))
     }
     if (payload?.error) {
       const message = String(payload.error.message || 'Motrix 桥返回错误')
@@ -144,10 +152,11 @@ export function createMotrixEngine({ cfg, env = process.env, fetchImpl = globalT
       throw new ConductorError('E_ENGINE_REJECTED', message, { info: payload.error })
     }
     if (!response.ok) {
-      throw new ConductorError('E_ENGINE_UNAVAILABLE', `Motrix 桥 HTTP ${response.status}`, {
-        info: { status: response.status },
-      })
+      const options = { info: { status: response.status } }
+      throw new ConductorError('E_ENGINE_UNAVAILABLE', `Motrix 桥 HTTP ${response.status}`,
+        response.status === 401 ? options : unconfirmed(options))
     }
+    if (payload === null && method === 'download/add') return undefined
     return payload.result
   }
 
@@ -193,8 +202,11 @@ export function createMotrixEngine({ cfg, env = process.env, fetchImpl = globalT
       if (Number.isInteger(connections) && connections > 0 && connections <= 16) params.connections = connections
       if (idempotencyKey) params.idempotencyKey = idempotencyKey
       const raw = await rpc('download/add', params)
+      const taskId = raw?.id || raw?.taskId
+      const validId = (typeof taskId === 'string' && taskId.trim().length > 0)
+        || (typeof taskId === 'number' && Number.isFinite(taskId) && taskId !== 0)
+      if (!validId) throw new ConductorError('E_ENGINE_REJECTED', 'Motrix 没有返回有效任务 ID', unknownSubmission())
       const task = projectTask(raw)
-      if (!task.taskId) throw new ConductorError('E_ENGINE_REJECTED', 'Motrix 没有返回任务 ID')
       return { nativeId: task.taskId, task }
     },
     async status(nativeId) {

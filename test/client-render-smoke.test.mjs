@@ -24,6 +24,12 @@ function makeRuntime() {
     if (!slots.has(key)) slots.set(key, { value: typeof init === 'function' ? init() : init })
     return slots.get(key)
   }
+  const hookSlot = (deps) => {
+    const s = slot(null)
+    s.changed = !s.deps || !deps || s.deps.length !== deps.length || deps.some((dep, i) => !Object.is(dep, s.deps[i]))
+    s.deps = deps
+    return s
+  }
   const React = {
     Fragment: Symbol.for('fragment'),
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
@@ -32,10 +38,16 @@ function makeRuntime() {
       return [s.value, (next) => { s.value = typeof next === 'function' ? next(s.value) : next; dirty += 1 }]
     },
     useRef: (init) => slot(init),
-    useMemo: (fn) => { slot(null); return fn() },
-    useCallback: (fn) => { slot(null); return fn },
-    useEffect(fn) { slot(null); top().effects.push(fn) },
-    useLayoutEffect(fn) { slot(null); top().effects.push(fn) },
+    useMemo(fn, deps) {
+      const s = hookSlot(deps)
+      if (s.changed) s.value = fn()
+      return s.value
+    },
+    useCallback(fn, deps) { return React.useMemo(() => fn, deps) },
+    useEffect(fn, deps) {
+      if (hookSlot(deps).changed) top().effects.push(fn)
+    },
+    useLayoutEffect(fn, deps) { React.useEffect(fn, deps) },
   }
   const collected = { buttons: [], texts: [] }
   const flatText = (node) => {
@@ -107,18 +119,19 @@ function boot({ snapshot, probe, snapshotFails = false } = {}) {
   const fetch = (url, init) => {
     const body = init && init.body ? String(init.body) : ''
     fetchCalls.push({ url: String(url), body })
-    if (body.includes('probe')) {
+    if (new URL(url, 'http://127.0.0.1').searchParams.get('op') === 'probe') {
       if (probe === 'throw') return Promise.reject(new Error('probe boom'))
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(probe || { engines: {} }) })
+      return Promise.resolve({ ok: true, json: async () => ({ ok: true, data: probe || { engines: {} } }) })
     }
     if (snapshotFails) return Promise.reject(new Error('snapshot boom'))
-    return Promise.resolve({ ok: true, json: () => Promise.resolve(snapshot || {}) })
+    return Promise.resolve({ ok: true, json: async () => ({ ok: true, data: snapshot || {} }) })
   }
   const sandbox = {
     window: { __ModuleLoader__: { load: (mod) => { sandbox.__mod = mod } }, location: { origin: 'http://127.0.0.1' } },
     document,
     localStorage: storage,
     fetch,
+    URLSearchParams,
     console,
     setTimeout: (fn) => { fn(); return 0 },
     clearTimeout() {},
@@ -200,6 +213,40 @@ test('渲染烟测：探测失败时引擎卡仍渲染', () => {
   const probeBtn = b.runtime.collected.buttons.find((btn) => b.runtime.flatText(btn.children).includes('检测'))
   if (probeBtn && probeBtn.props.onClick) probeBtn.props.onClick()
   b.settle()
+})
+
+test('首次加载允许用缓存，两个页签手动检测全部都强制刷新', async () => {
+  const b = boot()
+  const probes = () => b.fetchCalls.map(({ url }) => new URL(url, 'http://127.0.0.1').searchParams)
+    .filter((params) => params.get('op') === 'probe')
+  const button = (label, tab = false) => {
+    const hit = b.runtime.collected.buttons.find((btn) => {
+      const text = b.runtime.flatText(btn.children).trim()
+      return tab ? btn.props.role === 'tab' && text.includes(label) : text === label
+    })
+    assert.ok(hit, `找不到「${label}」按钮`)
+    return hit
+  }
+  const settle = async () => {
+    b.settle()
+    await new Promise(setImmediate)
+    b.settle()
+  }
+  await settle()
+  assert.equal(probes()[0]?.get('force'), '0')
+  for (const [tab, label] of [['总览', '全部检测'], ['引擎', '检测全部']]) {
+    if (tab === '引擎') {
+      button(tab, true).props.onClick()
+      await settle()
+    }
+    const start = probes().length
+    const hit = button(label)
+    await hit.props.onClick()
+    const [request] = probes().slice(start)
+    assert.equal(request?.get('ids'), 'all', tab)
+    assert.equal(request?.get('force'), '1', tab)
+    await settle()
+  }
 })
 
 test('渲染禁忌：源码里不允许出现内联 SVG（0.5.2 白屏同款改动）', () => {

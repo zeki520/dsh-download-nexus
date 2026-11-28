@@ -1,6 +1,6 @@
 {
   "name": "dsh-download-nexus",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "icon": "assets/icon/icon-128.png",
   "private": true,
   "type": "module",

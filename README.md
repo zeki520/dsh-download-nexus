@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.6.11-6f5bd6?style=flat-square" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.6.12-6f5bd6?style=flat-square" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-3da639?style=flat-square" />
-  <img alt="tests" src="https://img.shields.io/badge/tests-208%2F208-36c78e?style=flat-square" />
+  <img alt="tests" src="https://img.shields.io/badge/tests-219%2F219-36c78e?style=flat-square" />
   <img alt="engines" src="https://img.shields.io/badge/engines-4-66b9f7?style=flat-square" />
   <img alt="platform" src="https://img.shields.io/badge/DeepSeek_Harness-plugin-8b5cf6?style=flat-square" />
 </p>
@@ -46,12 +46,12 @@ npm pack --pack-destination "C:/Users/<你的用户名>/dsh-plugins"
 在 DSH 会话里装上刚打出来的 tarball：
 
 ```text
-plugin_manager action=install_bundle target=C:\Users\<你的用户名>\dsh-plugins\dsh-download-nexus-0.6.11.tgz
+plugin_manager action=install_bundle target=C:\Users\<你的用户名>\dsh-plugins\dsh-download-nexus-0.6.12.tgz
 ```
 
 装完重启 DSH：配置页在插件详情里，会话里多一个「下载」页签。默认 `toolPrefix` 为空，工具名就是 `download` / `download_status` / `download_control` / `download_doctor` / `motrix_provision`。
 
-> 发行包已附在本仓库的 Releases，可以直接下载 `dsh-download-nexus-0.6.11.tgz`，跳过打包步骤。
+> 当前源码版本可按上面的命令打包；已公开的历史发行包见本仓库的 [Releases](https://github.com/zeki520/dsh-download-nexus/releases)。
 
 ## 它能做什么
 
@@ -125,7 +125,7 @@ DSH 原先没有统一的下载工具，agent 常直接 `curl -o` / `wget -O` / 
 ## 开发
 
 ```bash
-npm test                          # 208 例：单元 + 结构守卫 + 渲染烟测 + 对比度审计
+npm test                          # 219 例：单元 + 结构守卫 + 渲染烟测 + 对比度审计
 node scripts/contrast-audit.mjs   # 只跑配色对比度（WCAG 2.1，深/浅壁纸各算一次）
 ```
 

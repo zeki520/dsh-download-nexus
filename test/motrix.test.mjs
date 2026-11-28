@@ -115,6 +115,60 @@ test('speaks MDXP over the endpoint file and never leaks the token', async () =>
   }
 })
 
+test('submit tells the caller to check Motrix after an ambiguous acknowledgement', async (t) => {
+  const endpointFile = path.join(tmp, 'ambiguous.json')
+  fs.writeFileSync(endpointFile, JSON.stringify({ port: 12345, localToken: 'fixture-token' }))
+  const args = { target: { kind: 'url', url: 'https://example.com/a.bin' }, saveDir: tmp }
+  const cases = {
+    'lost response': () => { throw new Error('connection reset') },
+    'non-JSON response': () => new Response('bad response'),
+    'null envelope': () => Response.json(null),
+    'missing task ID': () => Response.json({ result: {} }),
+    'object task ID': () => Response.json({ result: { id: {} } }),
+    'boolean task ID': () => Response.json({ result: { id: true } }),
+    'blank task ID': () => Response.json({ result: { id: '   ' } }),
+    'server error': () => Response.json({}, { status: 503 }),
+  }
+  for (const [label, reply] of Object.entries(cases)) {
+    await t.test(label, async () => {
+      const methods = []
+      const engine = createMotrixEngine({
+        env: { DSH_MOTRIX_ENDPOINT: endpointFile },
+        fetchImpl: async (_url, { body }) => {
+          methods.push(JSON.parse(body).method)
+          return reply()
+        },
+      })
+      await assert.rejects(engine.submit(args), (error) => {
+        assert.equal(error.info?.submission, 'unknown')
+        assert.match(error.hint, /Motrix.*任务列表.*重试/)
+        return true
+      })
+      assert.deepEqual(methods, ['download/add'])
+    })
+  }
+})
+
+test('missing bridge and explicit RPC rejection do not mark submission unknown', async () => {
+  const endpointFile = path.join(tmp, 'rejection.json')
+  const args = { target: { kind: 'url', url: 'https://example.com/a.bin' }, saveDir: tmp }
+  const methods = []
+  const engine = createMotrixEngine({
+    env: { DSH_MOTRIX_ENDPOINT: endpointFile },
+    fetchImpl: async (_url, { body }) => {
+      methods.push(JSON.parse(body).method)
+      return Response.json({ error: { code: -32602, message: 'invalid params' } })
+    },
+  })
+  await assert.rejects(engine.submit(args), { code: 'E_ENGINE_UNAVAILABLE', info: undefined })
+  assert.deepEqual(methods, [])
+  fs.writeFileSync(endpointFile, JSON.stringify({ port: 12345, localToken: 'fixture-token' }))
+  await assert.rejects(engine.submit(args), {
+    code: 'E_ENGINE_REJECTED', message: 'invalid params', info: { code: -32602, message: 'invalid params' },
+  })
+  assert.deepEqual(methods, ['download/add'])
+})
+
 test('waitFor purges and reports a limit breach before completion', async () => {
   const engine = createMotrixEngine({ cfg: {}, env: {} })
   const calls = []
